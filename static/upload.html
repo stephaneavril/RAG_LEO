@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Subir PDF de evidencia médica</title>
+<style>
+body {background:#0f172a;color:#e5e7eb;font-family:sans-serif;text-align:center;padding:40px;}
+input,button{margin:10px;padding:10px;border-radius:8px;border:1px solid #22d3ee;background:#111827;color:#e5e7eb;}
+</style>
+</head>
+<body>
+  <h2>📄 Subir PDF de evidencia médica</h2>
+  <form id="form" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".pdf" required>
+    <button type="submit">Subir</button>
+  </form>
+  <p id="msg"></p>
+  <script>
+    const form=document.getElementById('form');
+    const msg=document.getElementById('msg');
+    form.onsubmit=async(e)=>{
+      e.preventDefault();
+      msg.textContent="Subiendo...";
+      const data=new FormData(form);
+      const r=await fetch('/upload_pdf',{method:'POST',body:data});
+      const j=await r.json();
+      msg.textContent=j.ok?`✅ Subido: ${j.title}`:`❌ Error: ${j.error}`;
+    };
+  </script>
+</body>
+</html>
