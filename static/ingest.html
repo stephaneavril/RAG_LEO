@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ingesta de contenido médico</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif; background:#0f172a; color:#e5e7eb; margin:0; }
+    .wrap { max-width: 880px; margin: 40px auto; padding: 0 16px; }
+    textarea { width:100%; min-height: 240px; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:#0b1222; color:#e5e7eb; }
+    input, button { padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.15); background:#111827; color:#e5e7eb; }
+    .row { display:flex; gap:10px; margin:10px 0 20px; flex-wrap:wrap; }
+    a { color:#22d3ee; }
+    .ok { color:#86efac; }
+    .err { color:#fca5a5; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Ingesta de contenido médico</h1>
+    <p>Pega aquí guías o FAQs. Cada envío se parte en fragmentos y se indexa para búsqueda.</p>
+    <div class="row">
+      <input id="title" placeholder="Título (ej. Guía Hipertensión)" style="flex:1; min-width:260px;">
+      <input id="url" placeholder="URL fuente (opcional)" style="flex:1; min-width:260px;">
+      <input id="date" placeholder="Fecha publicación YYYY-MM-DD (opcional)" style="flex:1; min-width:220px;">
+    </div>
+    <textarea id="text" placeholder="Pega aquí el texto completo…"></textarea>
+    <div class="row">
+      <button id="send">Ingerir</button>
+      <span id="status"></span>
+    </div>
+    <p>Volver al <a href="/">chat</a>.</p>
+  </div>
+  <script>
+    const sendBtn = document.getElementById('send');
+    const statusEl = document.getElementById('status');
+
+    async function ingest(){
+      statusEl.textContent = 'Enviando…';
+      try {
+        const r = await fetch('/ingest', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            title: document.getElementById('title').value || 'Fuente interna',
+            source_url: document.getElementById('url').value || null,
+            published_at: document.getElementById('date').value || null,
+            text: document.getElementById('text').value || ''
+          })
+        });
+        const j = await r.json();
+        if (j.ok) {
+          statusEl.innerHTML = '<span class="ok">✔️ OK</span> · doc_id=' + j.doc_id + ' · chunks=' + j.chunks;
+        } else {
+          statusEl.innerHTML = '<span class="err">❌ ERROR</span> · ' + (j.error || 'ver logs');
+        }
+      } catch(e) {
+        statusEl.innerHTML = '<span class="err">❌ ERROR</span> · ' + e.message;
+      }
+    }
+    sendBtn.addEventListener('click', ingest);
+  </script>
+</body>
+</html>
