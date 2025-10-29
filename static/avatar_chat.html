@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Avatar Médico (sin labios)</title>
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#9ca3af; --accent:#22d3ee; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif; background: var(--bg); color: var(--text); }
+    .wrap { display:flex; align-items:center; justify-content:center; min-height:100dvh; padding:16px; }
+    .card { width:min(780px,100%); background:var(--panel); border-radius:16px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+    .header { display:flex; gap:12px; align-items:center; padding:16px 18px; border-bottom:1px solid rgba(255,255,255,.06); }
+    .avatar { width:48px; height:48px; border-radius:12px; overflow:hidden; flex:0 0 auto; background:#0b1020; display:grid; place-items:center; border:1px solid rgba(255,255,255,.08); }
+    .avatar img { width:100%; height:100%; object-fit:cover; }
+    .h-meta { line-height:1.1 }
+    .h-title { font-weight:700; }
+    .h-sub { font-size:12px; color: var(--muted); }
+    .chat { height: 60vh; min-height:420px; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth; }
+    .msg { max-width:80%; padding:12px 14px; border-radius:14px; line-height:1.35; white-space:pre-wrap; }
+    .user { align-self:flex-end; background:#1f2937; border:1px solid rgba(255,255,255,.06); }
+    .bot  { align-self:flex-start; background:#0b1222; border:1px solid rgba(34,211,238,.25); }
+    .footer { padding:12px; display:flex; gap:8px; border-top:1px solid rgba(255,255,255,.06); }
+    .input { flex:1; background:#0b1222; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px 14px; color:var(--text); outline:none; }
+    .btn { padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.07); background:#111b2e; color:var(--text); cursor:pointer; }
+    .btn:hover { border-color: rgba(34,211,238,.5); }
+    .pill { font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.08); color: var(--muted); }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .sources { margin-top:8px; font-size:12px; color:var(--muted); }
+    .sources a { color: var(--accent); text-decoration:none; }
+    .small { font-size:12px; color:var(--muted); }
+    .speak { border:1px dashed rgba(255,255,255,.2); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div class="avatar">
+          <img src="https://dummyimage.com/160x160/0b1222/22d3ee.png&text=MD" alt="Avatar Médico" />
+        </div>
+        <div class="h-meta">
+          <div class="h-title">Avatar Médico</div>
+          <div class="h-sub">Información general con fuentes — no sustituye atención profesional.</div>
+        </div>
+        <div style="margin-left:auto" class="row">
+          <span class="pill" id="latency">Latencia: —</span>
+          <button class="btn speak" id="speakToggle" title="Leer en voz las respuestas">🔈 Voz</button>
+        </div>
+      </div>
+
+      <div id="chat" class="chat"></div>
+
+      <div class="footer">
+        <input id="q" class="input" placeholder="Escribe tu pregunta médica (p. ej. ¿Qué es la hipertensión?)" />
+        <button id="send" class="btn">Enviar</button>
+      </div>
+      <div class="small" style="padding:0 12px 12px 12px;">* Este agente entrega información general con fuentes; no diagnostica ni prescribe.</div>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const q = document.getElementById('q');
+    const send = document.getElementById('send');
+    const speakToggle = document.getElementById('speakToggle');
+    const latencyEl = document.getElementById('latency');
+
+    let speakEnabled = false;
+    speakToggle.addEventListener('click', () => {
+      speakEnabled = !speakEnabled;
+      speakToggle.textContent = speakEnabled ? '🔊 Voz ON' : '🔈 Voz';
+    });
+
+    function addMsg(text, who='bot', sources=[]) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + (who === 'user' ? 'user' : 'bot');
+      div.textContent = text;
+      chat.appendChild(div);
+
+      if (who === 'bot' && sources?.length) {
+        const s = document.createElement('div');
+        s.className = 'sources';
+        s.innerHTML = 'Fuentes: ' + sources.map((x,i)=>`<a href="${x.url||'#'}" target="_blank">${x.title||('Fuente '+(i+1))}</a>${x.date?(' ('+x.date+')'):''}`).join(' · ');
+        chat.appendChild(s);
+      }
+      chat.scrollTop = chat.scrollHeight;
+
+      if (who === 'bot' && speakEnabled && 'speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(text.replace(/Fuentes:.*/,''));
+        utter.lang = 'es-MX';
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utter);
+      }
+    }
+
+    async function askServer(question){
+      const t0 = performance.now();
+      const r = await fetch('/ask', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ question })
+      });
+      const j = await r.json();
+      const t1 = performance.now();
+      latencyEl.textContent = 'Latencia: ' + Math.round(t1 - t0) + ' ms';
+      return j;
+    }
+
+    async function sendQ(){
+      const question = q.value.trim();
+      if (!question) return;
+      addMsg(question, 'user');
+      q.value = '';
+      try {
+        const { answer, sources } = await askServer(question);
+        addMsg(answer, 'bot', sources);
+      } catch (e) {
+        addMsg('Hubo un error al consultar. Intenta de nuevo.', 'bot');
+      }
+    }
+
+    send.addEventListener('click', sendQ);
+    q.addEventListener('keydown', (e)=> (e.key === 'Enter') && sendQ());
+
+    // Mensaje de bienvenida
+    addMsg('Hola, soy tu avatar médico sin animación de labios. Pregúntame sobre temas generales de salud y te compartiré información con fuentes.');
+  </script>
+</body>
+</html>

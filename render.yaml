@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: medical-avatar-rag
+    env: python
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -w 2 -k gthread -b 0.0.0.0:$PORT --threads 8 --timeout 120
+    autoDeploy: true
+    envVars:
+      - key: DB_PATH
+        value: medical_rag.db
+      - key: ALLOW_INGEST
+        value: "true"
+      - key: EMBED_DIM
+        value: "1536"
