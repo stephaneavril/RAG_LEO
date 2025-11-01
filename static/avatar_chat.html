@@ -60,27 +60,33 @@
   <div class="wrap">
     <div class="card">
       <div class="header">
-        <!-- Bola animada -->
-        <div class="blob" id="blob" aria-label="Indicador de voz"></div>
-
         <div class="h-meta">
           <div class="h-title">Asistente Médico</div>
-          <div class="h-sub">Texto o voz · información general con fuentes — no sustituye atención profesional.</div>
+          <div class="h-sub">Video central + chat con IA médica basada en evidencia.</div>
         </div>
-
         <div style="margin-left:auto" class="row">
           <span class="pill" id="latency">Latencia: —</span>
-          <button class="btn speak" id="micBtn" title="Hablar pregunta (si el navegador lo permite)">🎤 Hablar</button>
           <button class="btn speak" id="speakToggle" title="Leer en voz las respuestas">🔈 Voz OFF</button>
         </div>
       </div>
 
+      <!-- 🔹 VIDEO EN EL CENTRO 🔹 -->
+      <div style="display:flex; justify-content:center; align-items:center; height:300px; margin-top:10px; margin-bottom:10px;">
+        <video id="avatarVideo" autoplay muted loop playsinline
+               style="max-height:280px; border-radius:16px; box-shadow:0 0 25px rgba(34,211,238,.35);">
+          <source src="/static/media/avatar.mp4" type="video/mp4">
+          Tu navegador no soporta video HTML5.
+        </video>
+      </div>
+
+      <!-- 🔹 CHAT DE RESPUESTAS 🔹 -->
       <div id="chat" class="chat"></div>
 
       <div class="footer">
-        <input id="q" class="input" placeholder="Escribe o usa 🎤 para preguntar (ej. ¿Qué es la hipertensión?)" />
+        <input id="q" class="input" placeholder="Escribe tu pregunta médica (ej. ¿Qué es la hipertensión?)" />
         <button id="send" class="btn">Enviar</button>
       </div>
+
       <div class="small" style="padding:0 12px 12px 12px;">
         * Este agente entrega información general con fuentes; no diagnostica ni prescribe.
       </div>
@@ -88,26 +94,25 @@
   </div>
 
   <script>
+    // --- lógica del chat (idéntica a tu versión anterior) ---
     const chat = document.getElementById('chat');
     const q = document.getElementById('q');
     const send = document.getElementById('send');
     const speakToggle = document.getElementById('speakToggle');
-    const micBtn = document.getElementById('micBtn');
     const latencyEl = document.getElementById('latency');
-    const blob = document.getElementById('blob');
-
-    // ====== TTS (leer respuestas) ======
+    const video = document.getElementById('avatarVideo');
     let speakEnabled = false;
-    function speak(text){
+
+    function speak(text) {
       if (!('speechSynthesis' in window)) return;
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'es-MX';
-      u.onstart = ()=> blob.classList.add('speaking');
-      u.onend   = ()=> blob.classList.remove('speaking');
-      u.onerror = ()=> blob.classList.remove('speaking');
+      u.onstart = () => video.style.filter = "brightness(1.3)";
+      u.onend = () => video.style.filter = "brightness(1)";
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     }
+
     function toggleTTS(){
       speakEnabled = !speakEnabled;
       speakToggle.textContent = speakEnabled ? '🔊 Voz ON' : '🔈 Voz OFF';
@@ -115,36 +120,7 @@
     }
     speakToggle.addEventListener('click', toggleTTS);
 
-    // ====== ASR (dictar preguntas) ======
-    let rec = null;
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      rec = new SR();
-      rec.continuous = false;
-      rec.lang = 'es-MX';
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
-
-      rec.onresult = (e) => {
-        const txt = e.results[0][0].transcript;
-        q.value = txt;
-        micBtn.classList.remove('mic-on');
-        sendQ();
-      };
-      rec.onerror = () => micBtn.classList.remove('mic-on');
-      rec.onend = () => micBtn.classList.remove('mic-on');
-    } else {
-      micBtn.disabled = true;
-      micBtn.title = 'El reconocimiento de voz no es compatible en este navegador';
-    }
-
-    micBtn.addEventListener('click', ()=>{
-      if (!rec) return;
-      try { micBtn.classList.add('mic-on'); rec.start(); } catch(e){ micBtn.classList.remove('mic-on'); }
-    });
-
-    // ====== Chat helpers ======
-    function addMsg(text, who='bot', sources=[]) {
+    function addMsg(text, who='bot', sources=[]){
       const div = document.createElement('div');
       div.className = 'msg ' + (who === 'user' ? 'user' : 'bot');
       div.textContent = text;
@@ -158,10 +134,7 @@
       }
       chat.scrollTop = chat.scrollHeight;
 
-      if (who === 'bot' && speakEnabled) {
-        const t = text.replace(/Fuentes:.*/, '');
-        speak(t);
-      }
+      if (who === 'bot' && speakEnabled) speak(text.replace(/Fuentes:.*/, ''));
     }
 
     async function askServer(question){
@@ -185,16 +158,15 @@
       try {
         const { answer, sources } = await askServer(question);
         addMsg(answer, 'bot', sources);
-      } catch (e) {
+      } catch(e){
         addMsg('Hubo un error al consultar. Intenta de nuevo.', 'bot');
       }
     }
 
     send.addEventListener('click', sendQ);
-    q.addEventListener('keydown', (e)=> (e.key === 'Enter') && sendQ());
-
-    // Mensaje de bienvenida
-    addMsg('Hola, soy tu asistente médico. Puedes escribir o dictar con 🎤. Activa "🔊 Voz ON" si quieres que lea las respuestas.');
+    q.addEventListener('keydown', e => e.key === 'Enter' && sendQ());
+    addMsg('Hola, soy tu asistente médico IA. Pregúntame lo que necesites.');
   </script>
 </body>
+
 </html>
